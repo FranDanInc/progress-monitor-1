@@ -1,67 +1,42 @@
-'use strict';
+require('dotenv').config()
 
-const path       = require('path');
-const express    = require('express');
-const helmet     = require('helmet');
-const bodyParser = require('body-parser');
-const config     = require('server/config');
-const db         = require('server/db');
-const queries    = require('server/queries');
+const express = require('express')
+const app = express()
+const mongoose = require('mongoose')
+const getEmployees = require('./routes/getEmployees')
+const createEmployee = require('./routes/createEmployee')
+const updateEmployee = require('./routes/updateEmployee')
+const deleteEmployee = require('./routes/deleteEmployee')
+const getEmployeeById = require('./routes/getEmployeeById')
+const searchEmployee = require('./routes/searchEmployee')
+const cors = require("cors");
 
-const app = module.exports = express();
+app.use(cors());
 
-// It's best to use Helmet early in your middleware stack so that its headers are sure to be set.
-app.use(helmet());
+mongoose.connect(process.env.URL, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+})
 
-// Body parsing middleware.
-app.use(bodyParser.json());
+const db = mongoose.connection;
+app.use(express.json())
 
-// Pretty JSON output.
-app.set('json spaces', 4);
-
-// Serve static client files.
-app.use('/', express.static(path.join(__dirname, '../client')));
-
-app.post('/tasks', async (req, res) => {
-    const args = req.body;
-
-    return db.query({sql: queries.createTask, args})
-        .then(() => db.query({sql: queries.getLastTask}))
-        .then(rows => res.status(201).json(rows[0]));
+db.on("error", console.error.bind(console, "connection error: "));
+db.once("open", function () {
+  console.log("Connected successfully");
 });
 
-app.get('/tasks', async (req, res) => {
-    return db.query({sql: queries.listTasks})
-        .then(rows => res.status(200).json(rows));
-});
 
-app.post('/tasks/:id', async (req, res) => {
-    const {id} = req.params;
-    const {checked} = req.body;
 
-    return db.query({sql: queries.toggleTask, args: {id, checked}})
-        .then(() => res.sendStatus(200));
-});
+app.use('/employee', getEmployees)
+app.use('/employee', createEmployee)
+app.use('/employee', updateEmployee)
+app.use('/employee', deleteEmployee)
+app.use('/searchemployee', searchEmployee)
+app.use('/employee', getEmployeeById)
 
-app.delete('/tasks/:id', async (req, res) => {
-    const {id} = req.params;
 
-    return db.query({sql: queries.deleteTask, args: {id}})
-        .then(() => res.sendStatus(200));
-});
 
-(async () => {
 
-    // Create database tables.
-    await db.query({sql: queries.createTasksTable});
 
-    // Start the server.
-    app.listen(config.API_PORT, () => {
-        const appUrl = process.env.WORKSPACE_DEV_DOMAIN
-            ? `https://${process.env.WORKSPACE_DEV_DOMAIN}/`
-            : `http://localhost:${config.API_PORT}/`;
-        
-        console.info(`Ready! Follow the link to open your app: ${appUrl}`);
-    });
-
-})().catch(error => console.error(error.stack));
+app.listen(3100, ()=>console.log('server started in port 3100'))
